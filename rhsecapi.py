@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # PYTHON_ARGCOMPLETE_OK
 #-------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def fpaste_it(inputdata, lang='text', author=None, password=None, private='no', 
         params['paste_user'] = author
     # Check size of what we're about to post and raise exception if too big
     # FIXME: Figure out how to do this in requests without wasteful call to urllib.urlencode()
-    from urllib import urlencode
+    from urllib.parse import urlencode
     p = urlencode(params)
     pasteSizeKiB = len(p)/1024.0
     if pasteSizeKiB >= 512:
@@ -98,11 +98,11 @@ def fpaste_it(inputdata, lang='text', author=None, password=None, private='no', 
         # If no json returned, we've hit some weird error
         from tempfile import NamedTemporaryFile
         tmp = NamedTemporaryFile(delete=False)
-        print(r.content, file=tmp)
+        tmp.write(r.content)
         tmp.flush()
         raise ValueError("Fedora Pastebin client ERROR: Didn't receive expected JSON response (saved to '{0}' for debugging)".format(tmp.name))
     # Error keys adapted from Jason Farrell's fpaste
-    if j.has_key('error'):
+    if 'error' in j:
         err = j['error']
         if err == 'err_spamguard_php':
             raise ValueError("Fedora Pastebin server ERROR: Poster's IP rejected as malicious")
@@ -118,7 +118,7 @@ def fpaste_it(inputdata, lang='text', author=None, password=None, private='no', 
             raise ValueError("Fedora Pastebin server ERROR: '{0}'".format(err))
     # Put together URL with optional hash if requested
     pasteUrl = '{0}/{1}'.format(url, j['result']['id'])
-    if 'yes' in private and j['result'].has_key('hash'):
+    if 'yes' in private and 'hash' in j['result']:
         pasteUrl += '/{0}'.format(j['result']['hash'])
     return pasteUrl
 
@@ -283,7 +283,8 @@ def parse_args():
     if o.showHelp:
         from tempfile import NamedTemporaryFile
         from subprocess import call
-        tmp = NamedTemporaryFile(prefix='{0}-help-'.format(prog), suffix='.txt')
+        #tmp = NamedTemporaryFile(prefix='{0}-help-'.format(prog), suffix='.txt')
+        tmp = NamedTemporaryFile(mode='w+', prefix='{0}-help-'.format(prog), suffix='.txt')
         p.print_help(file=tmp)
         tmp.flush()
         call(['less', tmp.name])
@@ -347,7 +348,7 @@ def parse_args():
 def main(opts):
     apiclient = rhsda.ApiClient(opts.loglevel)
     from os import environ
-    if environ.has_key('RHSDA_URL') and environ['RHSDA_URL'].startswith('http'):
+    if 'RHSDA_URL' in environ and environ['RHSDA_URL'].startswith('http'):
         apiclient.cfg.apiUrl = environ['RHSDA_URL']
     searchOutput = ""
     iavaOutput = ""
@@ -404,7 +405,7 @@ def main(opts):
         except ValueError as e:
             print(e, file=sys.stderr)
             logger.error("Submitting to pastebin failed; print results to stdout instead? [y]")
-            answer = raw_input("> ")
+            answer = input("> ")
             if "y" in answer or len(answer) == 0:
                 print(data, end="")
         else:

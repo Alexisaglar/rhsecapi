@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Copyright 2016, 2017
@@ -16,7 +16,7 @@
 #-------------------------------------------------------------------------------
 
 # Modules from standard library
-from __future__ import print_function
+# from __future__ import print_function
 import requests
 import logging
 import sys
@@ -24,10 +24,12 @@ import re
 import textwrap, fcntl, termios, struct
 import json
 import signal
-import copy_reg
+import copyreg
 import types
+import multiprocessing as mp
 import multiprocessing.dummy as multiprocessing
 from argparse import Namespace
+from io import TextIOWrapper
 
 
 # Logging
@@ -101,7 +103,6 @@ cveFields.aliases_printable = [
 # A list of all fields + all aliases
 cveFields.all_plus_aliases = list(cveFields.all)
 cveFields.all_plus_aliases.extend([k for k in cveFields.aliases])
-del(k)
 
 
 # Regex to match a CVE id string
@@ -118,14 +119,14 @@ def _reduce_method(m):
     else:
         return getattr, (m.__self__, m.__func__.__name__)
 
-copy_reg.pickle(types.MethodType, _reduce_method)
+copyreg.pickle(types.MethodType, _reduce_method)
 
 
 # Set default number of worker threads
-if multiprocessing.cpu_count() <= 2:
+if mp.cpu_count() <= 2:
     numThreadsDefault = 4
 else:
-    numThreadsDefault = multiprocessing.cpu_count() * 2
+    numThreadsDefault = mp.cpu_count() * 2
 
 
 def jprint(jsoninput):
@@ -175,7 +176,7 @@ class ApiClient:
 
     def __init__(self, logLevel='notice'):
         self.cfg = Namespace()
-        self.cfg.apiUrl = 'https://access.redhat.com/labs/securitydataapi'
+        self.cfg.apiUrl = 'https://access.redhat.com/hydra/rest/securitydata'
         logger.setLevel(logLevel.upper())
 
     def _get_terminal_width(self):
@@ -192,7 +193,9 @@ class ApiClient:
         if oF not in outFormats:
             raise ValueError("Invalid outFormat type ('{0}') requested; should be one of: {1}".format(oF, ", ".join(outFormats)))
 
-    def __get(self, url, params={}):
+    def __get(self, url, params=None):
+        if params is None:
+            params = {}
         url = self.cfg.apiUrl + url
         u = ""
         if params:
@@ -217,7 +220,7 @@ class ApiClient:
         if 'application/json' in r.headers['Content-Type']:
             return r.json()
         else:
-            return r.content
+            return r.text
 
     def _find(self, dataType, params, outFormat):
         self.__validate_data_type(dataType)
@@ -368,11 +371,11 @@ class ApiClient:
         text = ""
         if isinstance(input, list):
             if oneLineEach:
-                text = "\n".join(input).encode('utf-8').strip()
+                text = "\n".join(input).strip()
             else:
-                text = "  ".join(input).encode('utf-8').strip()
+                text = "  ".join(input).strip()
         else:
-            text = input.encode('utf-8').strip()
+            text = input.strip()
         if oneLineEach:
             text = "\n" + text
             text = re.sub(r"\n[\n\s]*", "\n   ", text)
@@ -728,7 +731,7 @@ class ApiClient:
         """
         if outFormat not in ['plaintext', 'json', 'jsonpretty']:
             raise ValueError("Invalid outFormat ('{0}') requested; should be one of: 'plaintext', 'json', 'jsonpretty'".format(outFormat))
-        if isinstance(cves, str) or isinstance(cves, file):
+        if isinstance(cves, str) or isinstance(cves, TextIOWrapper):
             cves = extract_cves_from_input(cves)
         elif not isinstance(cves, list):
             raise ValueError("Invalid 'cves=' argument input; must be list, string, or file obj")
