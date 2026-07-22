@@ -1,3 +1,5 @@
+*This repo has had small changes to now work with python3.*
+
 # rhsecapi
 
 `rhsecapi` makes it easy to interface with the [Red Hat Security Data API](https://access.redhat.com/documentation/en/red-hat-security-data-api/) -- even from [behind a proxy](https://github.com/ryran/rhsecapi/issues/29). From the rpm description:
